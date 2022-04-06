@@ -1,10 +1,11 @@
 {-# LANGUAGE LambdaCase  #-}
 {-# LANGUAGE BlockArguments #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 
 module Main where
 
-import Prelude hiding (log, Right, Left)
+import Prelude hiding (Right, Left)
 import qualified Data.Array as Arr
 import Data.Array (Array)
 import qualified Data.Map.Strict as Map
@@ -13,7 +14,6 @@ import System.Exit (exitFailure)
 import Data.List (intercalate, sort, sortOn, foldl')
 import Data.Bifunctor (Bifunctor(first, second))
 import Data.Maybe (mapMaybe, fromMaybe)
-
 import BiMap (BiMap)
 import qualified BiMap
 import Control.Monad (when, MonadPlus (mzero))
@@ -26,10 +26,10 @@ import Data.Foldable (for_)
 
 main :: IO ()
 main = do
-    solution <- runMaybeT (solve input3)
+    solution <- runMaybeT (solve input)
     case solution of
         Nothing -> do
-            log "No solutions were found!"
+            putStrLn "No solutions were found!"
             exitFailure
         Just solution -> do
             printSolution solution
@@ -37,75 +37,32 @@ main = do
 input :: Input
 input = Input
     { boards = Map.fromList
-        [ ('M', Board 3 (Arr.listArray (0, 8)
-            [ Wall, Wall, Wall
-            , Wall, Space, Space
-            , Wall, Space, Space
+        [ ('M', makeBoard 9
+            [ "XXXXXXXXX"
+            , "XX     XX"
+            , "XX     XX"
+            , "XX     XX"
+            , "XX     XX"
+            , "XX XXXXXX"
+            , "XX    XXX"
+            , "XX    XXX"
+            , "XXXXXXXXX"
             ]
-          ))
-        ]
-    , initialState = BiMap.fromList [(Player, Coord 'M' (2, 2))]
-    , requirements = Map.fromList [(Coord 'M' (1, 1), RequirePlayer)]
-    }
-
-input2 = Input
-    { boards = Map.fromList
-        [ ('A', Board 3 (Arr.listArray (0, 8)
-            [ Space, Space, Wall
-            , Wall, Wall, Wall
-            , Wall, Wall, Wall
+          )
+        , ('G', makeBoard 5
+            [ "XXXXX"
+            , "XX   "
+            , "XX   "
+            , "XX  X"
+            , "XXXXX"
             ]
-          ))
-        , ('B', Board 3 (Arr.listArray (0, 8)
-            [ Wall, Wall, Wall
-            , Space, Space, Wall
-            , Wall, Wall, Wall
+          )
+        , ('Y', makeBoard 3
+            [ "XXX"
+            , "  X"
+            , "X X"
             ]
-          ))
-        , ('C', Board 3 (Arr.listArray (0, 8)
-            [ Wall, Wall, Wall
-            , Wall, Wall, Space
-            , Wall, Wall, Wall
-            ]
-          ))
-        ]
-      , initialState = BiMap.fromList
-          [ (Player, Coord 'A' (0, 0))
-          , (BoardPiece 'B', Coord 'A' (1, 0))
-          , (BoardPiece 'C', Coord 'B' (0, 1))
-          , (Block 1, Coord 'B' (1, 1))
-          ]
-      , requirements = Map.empty
-    }
-
-input3 = Input
-    { boards = Map.fromList
-        [ ('M', Board 9 (Arr.listArray (0, 80) (
-            map (\case ' ' -> Space; 'X' -> Wall) $
-                "XXXXXXXXX" ++
-                "XX     XX" ++
-                "XX     XX" ++
-                "XX     XX" ++
-                "XX     XX" ++
-                "XX XXXXXX" ++
-                "XX    XXX" ++
-                "XX    XXX" ++
-                "XXXXXXXXX"
-          )))
-        , ('G', Board 5 (Arr.listArray (0, 24) (
-            map (\case ' ' -> Space; 'X' -> Wall) $
-                "XXXXX" ++
-                "XX   " ++
-                "XX   " ++
-                "XX  X" ++
-                "XXXXX"
-          )))
-        , ('Y', Board 3 (Arr.listArray (0, 8) (
-            map (\case ' ' -> Space; 'X' -> Wall) $
-                "XXX" ++
-                "  X" ++
-                "X X"
-          )))
+          )
         ]
     , initialState = BiMap.fromList
         [ (Player, Coord 'M' (6, 2))
@@ -119,6 +76,14 @@ input3 = Input
         , (Coord 'M' (5, 6), RequirePlayer)
         ]
     }
+
+charsToCells :: String -> [Cell]
+charsToCells =
+    map (\case ' ' -> Space; 'X' -> Wall)
+
+makeBoard :: Int -> [String] -> Board
+makeBoard w rows =
+    Board w (Arr.listArray (0, w ^ 2 - 1) (charsToCells (concat rows)))
 
 solve :: Input -> MaybeT IO Solution
 solve Input { boards, initialState, requirements } =
@@ -308,19 +273,10 @@ data Coord = Coord
 instance Show Coord where
     show (Coord board (x, y)) = board : (show x ++ "," ++ show y)
 
-indexToCoord :: Char -> Int -> Int -> Coord
-indexToCoord board w i = Coord board (indexToXY w i)
-
 xyToIndex :: Int -> (Int, Int) -> Int
 xyToIndex w (x, y) = w * y + x
 
-indexToXY :: Int -> Int -> (Int, Int)
-indexToXY w i = (i `mod` w, i `div` w)
-
-data Cell
-    = Wall
-    | Space
-    deriving (Eq, Ord)
+data Cell = Wall | Space deriving (Eq, Ord)
 
 lookupCellByCoord :: Coord -> Boards -> Cell
 lookupCellByCoord (Coord board (x, y)) boards =
@@ -329,8 +285,3 @@ lookupCellByCoord (Coord board (x, y)) boards =
 lookupCellByXY :: (Int, Int) -> Board -> Cell
 lookupCellByXY (x, y) (Board w cells) =
     cells Arr.! xyToIndex w (x, y)
-
-class Monad m => CanLog m where
-    log :: String -> m ()
-
-instance CanLog IO where log = putStrLn
