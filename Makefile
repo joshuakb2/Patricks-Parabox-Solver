@@ -1,5 +1,5 @@
 Main: *.hs
-	ghc Main.hs
+	ghc -O2 Main.hs
 
 .PHONY: clean
 
