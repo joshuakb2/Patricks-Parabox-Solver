@@ -20,9 +20,11 @@ import Control.Monad (when, MonadPlus (mzero))
 import Control.Applicative ((<|>), Alternative (empty))
 import qualified Data.Set as Set
 import Data.Traversable (for)
-import Control.Monad.State (execStateT, MonadState (get, put), StateT (runStateT), MonadIO (liftIO))
+import Control.Monad.State (execStateT, MonadState (get, put), StateT (runStateT), MonadIO (liftIO), runState)
 import Control.Monad.Trans.Maybe (MaybeT (runMaybeT))
-import Data.Foldable (for_)
+import Data.Foldable (for_, Foldable (toList))
+import ListT (ListT(ListT))
+import qualified ListT
 
 main :: IO ()
 main = do
@@ -230,12 +232,17 @@ solve Input { boards, initialState, requirements } =
             else if null states then
                 mzero
             else do
-                let newStates = concat do
-                     (state, steps) <- states
-                     for [Up, Down, Left, Right] \dir -> do
-                         return (fromMaybe state (movePiece Player (BiMap.unsafeLookupA Player state) dir Map.empty (boards, state)), dir : steps)
-                let trulyNewStates = uniqueStates $ filter (not . (`Set.member` visitedStates) . canonicalGameStateStr . fst) newStates
-                solve' trulyNewStates (moves + 1) (foldl' (flip (Set.insert . canonicalGameStateStr . fst)) visitedStates trulyNewStates)
+                let calcNewStates = do
+                     (state, steps) <- ListT.fromFoldable states
+                     dir <- ListT.fromFoldable [Up, Down, Left, Right]
+                     newState <- ListT.fromFoldable (movePiece Player (BiMap.unsafeLookupA Player state) dir Map.empty (boards, state))
+                     let canonical = canonicalGameStateStr newState
+                     visitedStates <- get
+                     when (Set.member canonical visitedStates) mzero
+                     put (Set.insert canonical visitedStates)
+                     return (newState, dir : steps)
+                let (newStates, newVisitedStates) = runState (ListT.toList calcNewStates) visitedStates
+                solve' newStates (moves + 1) (foldl' (flip (Set.insert . canonicalGameStateStr . fst)) newVisitedStates newStates)
 
 uniqueStates :: [(GameState, [Step])] -> [(GameState, [Step])]
 uniqueStates states =
