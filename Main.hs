@@ -11,7 +11,7 @@ import Data.Array (Array)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
 import System.Exit (exitFailure)
-import Data.List (intercalate, sort, sortOn, foldl')
+import Data.List (intercalate, sort, sortOn, foldl', uncons)
 import Data.Bifunctor (Bifunctor(first, second))
 import Data.Maybe (mapMaybe, fromMaybe)
 import BiMap (BiMap)
@@ -28,7 +28,7 @@ import qualified ListT
 
 main :: IO ()
 main = do
-    solution <- runMaybeT (solve input5)
+    solution <- runMaybeT (solve input7)
     case solution of
         Nothing -> do
             putStrLn "No solutions were found!"
@@ -39,43 +39,21 @@ main = do
 input :: Input
 input = Input
     { boards = Map.fromList
-        [ ('M', makeBoard 9
-            [ "XXXXXXXXX"
-            , "XX     XX"
-            , "XX     XX"
-            , "XX     XX"
-            , "XX     XX"
-            , "XX XXXXXX"
-            , "XX    XXX"
-            , "XX    XXX"
-            , "XXXXXXXXX"
-            ]
-          )
-        , ('G', makeBoard 5
-            [ "XXXXX"
-            , "XX   "
-            , "XX   "
-            , "XX  X"
-            , "XXXXX"
-            ]
-          )
-        , ('Y', makeBoard 3
-            [ "XXX"
-            , "  X"
-            , "X X"
-            ]
+        [ ('G', makeBoard 5 [repeat ' ']
           )
         ]
     , initialState = BiMap.fromList
-        [ (Player, Coord 'M' (6, 2))
-        , (BoardPiece 'G', Coord 'M' (2, 2))
-        , (BoardPiece 'Y', Coord 'M' (4, 3))
-        , (Block 1, Coord 'M' (4, 2))
+        [ (Player, Coord 'G' (2, 3))
+        , (Clone 'G' 1, Coord 'G' (1, 0))
+        , (Clone 'G' 2, Coord 'G' (0, 3))
+        , (Clone 'G' 3, Coord 'G' (3, 4))
+        , (Clone 'G' 4, Coord 'G' (4, 1))
         ]
     , requirements = Map.fromList
-        [ (Coord 'M' (4, 7), RequireNonPlayer)
-        , (Coord 'M' (5, 7), RequireNonPlayer)
-        , (Coord 'M' (5, 6), RequirePlayer)
+        [ (Coord 'G' (1, 2), RequireNonPlayer)
+        , (Coord 'G' (2, 2), RequireNonPlayer)
+        , (Coord 'G' (3, 2), RequireNonPlayer)
+        , (Coord 'G' (2, 1), RequirePlayer)
         ]
     }
 
@@ -212,6 +190,96 @@ input5 = Input
         ]
     }
 
+input6 :: Input
+input6 = Input
+    { boards = Map.fromList
+        [ ('M', makeBoard 5
+            [ "XXXXX"
+            , "XXXXX"
+            , "X  XX"
+            , "XXXXX"
+            , "XXXXX"
+            ]
+          )
+        , ('A', makeBoard 3
+            [ "XX "
+            , "XXX"
+            , "XXX"
+            ]
+          )
+        , ('X', makeBoard 3
+            [ " XX"
+            , "XXX"
+            , "XXX"
+            ]
+          )
+        , ('B', makeBoard 3
+            [ "XXX"
+            , "XXX"
+            , "XX "
+            ]
+          )
+        , ('Y', makeBoard 3
+            [ "XXX"
+            , "XXX"
+            , "  X"
+            ]
+          )
+        ]
+    , initialState = BiMap.fromList
+        [ (Player, Coord 'B' (2, 2))
+        , (BoardPiece 'A', Coord 'M' (1, 2))
+        , (BoardPiece 'B', Coord 'A' (2, 0))
+        , (BoardPiece 'X', Coord 'M' (2, 2))
+        , (BoardPiece 'Y', Coord 'X' (0, 0))
+        , (Block 1, Coord 'Y' (0, 2))
+        ]
+    , requirements = Map.fromList [(Coord 'Y' (0, 2), RequirePlayer)]
+    }
+
+input7 :: Input
+input7 = Input
+    { boards = Map.fromList
+        [ ('P', makeBoard 9
+            [ "XXXXXXXXX"
+            , "XXX    XX"
+            , "XXX    XX"
+            , "XXX    XX"
+            , "XX     XX"
+            , "XXX    XX"
+            , "XXX    XX"
+            , "XXX    XX"
+            , "XXXXXXXXX"
+            ]
+          )
+        , ('B', makeBoard 5
+            [ "XXXXX"
+            , "XXXXX"
+            , "XX   "
+            , "   XX"
+            , "XXXXX"
+            ]
+          )
+        , ('G', makeBoard 5
+            [ "XXXXX"
+            , "XXXXX"
+            , "XXXXX"
+            , "XXXX "
+            , "XXXXX"
+            ]
+          )
+        ]
+    , initialState = BiMap.fromList
+        [ (Player, Coord 'P' (4, 4))
+        , (BoardPiece 'B', Coord 'P' (3, 2))
+        , (BoardPiece 'G', Coord 'P' (3, 6))
+        ]
+    , requirements = Map.fromList
+        [ (Coord 'P' (5, 4), RequireNonPlayer)
+        , (Coord 'P' (5, 2), RequirePlayer)
+        ]
+    }
+
 charsToCells :: String -> [Cell]
 charsToCells =
     map (\case ' ' -> Space; 'X' -> Wall)
@@ -225,7 +293,7 @@ solve Input { boards, initialState, requirements } =
     solve' [(initialState, [])] 0 (Set.singleton (canonicalGameStateStr initialState))
     where
         solve' states moves visitedStates = do
-            liftIO . putStrLn $ "Moves: " ++ show moves ++ ", states: " ++ show (length states)
+            liftIO . putStrLn $ "Moves: " ++ show moves ++ ", states: " ++ {-intercalate "   " (map (canonicalGameStateStr . fst) states)-} show (length states)
             let solutions = map (reverse . snd) $ filter (isSolved requirements . fst) states
             if not (null solutions) then
                 return (head solutions)
@@ -265,12 +333,12 @@ movePiece piece coord dir inMotion (boards, state) = do
             if moving == dir then Just state -- Nothing needs to be done, non-conflicting looping movement
             else Nothing -- Conflicting loop found, fail
         Nothing -> do -- No loop found
-            target <- targetCell dir coord (boards, state)
+            (target, piecesExited) <- targetCell dir coord (boards, state)
             when (lookupCellByCoord target boards == Wall) Nothing
             case BiMap.lookupB target state of
                 Nothing -> Just (BiMap.insert (piece, target) state)
                 Just inTheWay ->
-                    onPieceInTheWay piece inTheWay target dir inMotion (boards, state)
+                    onPieceInTheWay piece inTheWay target dir inMotion piecesExited (boards, state)
 
 onPieceInTheWay
     :: Piece
@@ -278,20 +346,23 @@ onPieceInTheWay
     -> Coord
     -> Step
     -> InMotion
+    -> [(Int, Int)]
     -> (Boards, GameState)
     -> Maybe (BiMap Piece Coord)
-onPieceInTheWay piece inTheWay target dir inMotion (boards, state) =
+onPieceInTheWay piece inTheWay target dir inMotion boardPieceExitedCoords (boards, state) =
     let
         newInMotion = Map.insert piece dir inMotion
         push = do
             newState <- movePiece inTheWay target dir newInMotion (boards, state)
             Just (BiMap.insert (piece, target) newState)
+        transfer = do
+            transferPiece piece inTheWay dir newInMotion boardPieceExitedCoords (boards, state)
         goInto = do
             movePieceIntoAnother piece inTheWay dir newInMotion (boards, state)
         eat = do
             newState <- movePieceIntoAnother inTheWay piece (opposite dir) newInMotion (boards, state)
             Just (BiMap.insert (piece, target) newState)
-    in push <|> goInto <|> eat
+    in push <|> transfer <|> goInto <|> eat
 
 movePieceIntoAnother :: Piece -> Piece -> Step -> InMotion -> (Boards, GameState) -> Maybe GameState
 movePieceIntoAnother piece into dir inMotion (boards, state) = do
@@ -305,7 +376,7 @@ movePieceIntoAnother piece into dir inMotion (boards, state) = do
     let target = Coord boardChar (x, y)
     case BiMap.lookupB target state of
         Nothing -> Just (BiMap.insert (piece, target) state)
-        Just inTheWay -> onPieceInTheWay piece inTheWay target dir inMotion (boards, state)
+        Just inTheWay -> onPieceInTheWay piece inTheWay target dir inMotion [] (boards, state)
 
 getEntryCellXY :: Step -> Board -> (Int, Int)
 getEntryCellXY dir (Board w _) =
@@ -315,19 +386,46 @@ getEntryCellXY dir (Board w _) =
         Left -> (w - 1, w `div` 2)
         Right -> (0, w `div` 2)
 
-targetCell :: Step -> Coord -> (Boards, GameState) -> Maybe Coord
+transferPiece :: Piece -> Piece -> Step -> InMotion -> [(Int, Int)] -> (Boards, GameState) -> Maybe GameState
+transferPiece piece into dir inMotion boardPieceExitedCoords (boards, state) = do
+    (ourCoord, rest) <- uncons boardPieceExitedCoords
+    boardChar <- case into of
+        BoardPiece boardChar -> Just boardChar
+        Clone boardChar _ -> Just boardChar
+        _ -> Nothing
+    let board = boards Map.! boardChar
+    let (x, y) = getTransferCellXY dir board ourCoord
+    when (lookupCellByXY (x, y) board == Wall) Nothing
+    let target = Coord boardChar (x, y)
+    case BiMap.lookupB target state of
+        Nothing -> Just (BiMap.insert (piece, target) state)
+        Just inTheWay -> onPieceInTheWay piece inTheWay target dir inMotion rest (boards, state)
+
+getTransferCellXY :: Step -> Board -> (Int, Int) -> (Int, Int)
+getTransferCellXY dir (Board w _) (x, y) =
+    case dir of
+        Up -> (x, w - 1)
+        Down -> (x, 0)
+        Left -> (w - 1, y)
+        Right -> (0, y)
+
+-- Int represents the original coordinate before each time we exit a board piece
+type Target = (Coord, [(Int, Int)])
+
+targetCell :: Step -> Coord -> (Boards, GameState) -> Maybe Target
 targetCell dir coord (boards, state) =
-    targetCell' coord Map.empty
+    targetCell' coord Set.empty []
     where
-        targetCell' (Coord board (x, y)) visitedBoards
-          | fromMaybe 0 (visitedBoards Map.!? board) > 1 = Nothing
+        targetCell' (Coord board (x, y)) boardsExited exitFromCoords
           | outOfBounds (width (boards Map.! board)) newXY = do
+                when (Set.member board boardsExited) Nothing
                 boardPieceCoord <- findPiece board state
-                targetCell' boardPieceCoord (Map.alter (maybe (Just 1) (Just . (+1))) board visitedBoards)
+                targetCell' boardPieceCoord (Set.insert board boardsExited) newExitFromCoords
           | otherwise =
-                Just (Coord board newXY)
+                Just (Coord board newXY, exitFromCoords)
             where
                 newXY = delta dir (x, y)
+                newExitFromCoords = (x, y) : exitFromCoords
 
 outOfBounds :: Int -> (Int, Int) -> Bool
 outOfBounds w (x, y) = x < 0 || y < 0 || x >= w || y >= w
