@@ -319,6 +319,48 @@ puzzles =
             [ (Coord 'G' (3, 1), RequirePlayer)
             ]
         }
+    , Input
+        { boards = Map.fromList
+            [ ('P', makeBoard 7
+                [ "XXXXXXX"
+                , "XX   XX"
+                , "XX   XX"
+                , "XX   XX"
+                , "XXXXXXX"
+                , "X     X"
+                , "XXXXXXX"
+                ]
+              )
+            , ('B', makeBoard 7
+                [ "X XXXXX"
+                , "       "
+                , "     XX"
+                , "     X "
+                , " X     "
+                , " X   X "
+                , "     X "
+                ]
+              )
+            ]
+        , initialState = BiMap.fromList
+            [ (Player, Coord 'P' (1, 5))
+            , (BoardPiece 'B', Coord 'P' (3, 2))
+            , (Clone 'B' 1, Coord 'P' (5, 5))
+            , (Clone 'B' 2, Coord 'P' (2, 1))
+            , (Clone 'B' 3, Coord 'P' (2, 2))
+            , (Clone 'B' 4, Coord 'P' (2, 3))
+            , (Clone 'B' 5, Coord 'P' (3, 3))
+            , (Clone 'B' 6, Coord 'P' (4, 3))
+            , (Clone 'B' 7, Coord 'P' (4, 2))
+            , (Clone 'B' 8, Coord 'P' (4, 1))
+            , (Clone 'B' 9, Coord 'P' (3, 1))
+            , (Block 1, Coord 'B' (4, 1))
+            ]
+        , requirements = Map.fromList
+            [ (Coord 'B' (3, 3), RequirePlayer)
+            , (Coord 'B' (6, 5), RequireNonPlayer)
+            ]
+        }
     ]
 
 charsToCells :: String -> [Cell]
