@@ -162,10 +162,10 @@ movePieceIntoAnother piece into dir inMotion beingEntered boardPiecesExitedCoord
 getEntryCellXY :: Step -> Board -> (Int, Int)
 getEntryCellXY dir (Board w _) =
     case dir of
-        Up -> (w `div` 2, w - 1)
+        Up -> (w `div` 2, w - 1) -- Prefer greater x for even blocks
         Down -> (w `div` 2, 0)
-        Left -> (w - 1, w `div` 2)
-        Right -> (0, w `div` 2)
+        Left -> (w - 1, (w - 1) `div` 2) -- Prefer lesser y for even blocks
+        Right -> (0, (w - 1) `div` 2)
 
 -- When we are growing or staying the same size to go into another piece
 getTransferCellXY :: (Int, Int) -> Step -> Board -> (Int, Int)
@@ -256,7 +256,7 @@ getClonePieces =
             map (second sort)
             . Map.toList
             . foldl' (\map (c, coord) ->
-                Map.alter (maybe (Just [coord]) (Just . (coord :))) c map
+                Map.alter (Just . maybe [coord] (coord :)) c map
             ) Map.empty
 
 isBlock :: Piece -> Bool
