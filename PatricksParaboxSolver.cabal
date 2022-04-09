@@ -19,7 +19,7 @@ extra-source-files:  CHANGELOG.md
 
 executable PatricksParaboxSolver
   main-is:             Main.hs
-  other-modules:       BiMap
+  other-modules:       BiMap, Puzzles, Common
   -- other-extensions:
   build-depends:       base >=4.13 && <4.14,
                        containers,
