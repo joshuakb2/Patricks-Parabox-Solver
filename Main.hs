@@ -9,7 +9,7 @@ import qualified Data.Array as Arr
 import Data.Array (Array)
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-import System.Exit (exitFailure)
+import System.Exit (exitFailure, exitSuccess)
 import Data.List (intercalate, sort, sortOn, foldl', uncons)
 import Data.Bifunctor (Bifunctor(first, second))
 import Data.Maybe (mapMaybe, fromMaybe)
@@ -27,10 +27,32 @@ import ListT (ListT(ListT))
 import qualified ListT
 import Common
 import Puzzles
+import System.Environment (getArgs)
+import System.IO (stdout, stderr, hPutStrLn, Handle)
 
 main :: IO ()
 main = do
-    solution <- runMaybeT (solve (last puzzles))
+    args <- getArgs
+    case args of
+        ["--help"] -> do
+            help stdout
+            exitSuccess
+        [nth] -> do
+            let n = read nth
+            solvePuzzle (puzzles !! n)
+        [] -> do
+            solvePuzzle (last puzzles)
+        _ -> do
+            help stderr
+            exitFailure
+
+help :: Handle -> IO ()
+help out =
+    hPutStrLn out "Usage: PatricksParaboxSolver [nth puzzles to solve]"
+
+solvePuzzle :: Input -> IO ()
+solvePuzzle puzzle = do
+    solution <- runMaybeT (solve puzzle)
     case solution of
         Nothing -> do
             putStrLn "No solutions were found!"
