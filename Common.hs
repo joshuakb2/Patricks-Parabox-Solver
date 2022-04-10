@@ -43,4 +43,4 @@ data Coord = Coord
 instance Show Coord where
     show (Coord board (x, y)) = board : (show x ++ "," ++ show y)
 
-data Cell = Wall | Space deriving (Eq, Ord)
+data Cell = Wall | Space deriving (Eq, Ord, Show)

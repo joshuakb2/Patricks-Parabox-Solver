@@ -29,6 +29,7 @@ import Common
 import Puzzles
 import System.Environment (getArgs)
 import System.IO (stdout, stderr, hPutStrLn, Handle)
+import Data.Ratio (Ratio, (%))
 
 main :: IO ()
 main = do
@@ -105,12 +106,12 @@ movePiece piece coord dir inMotion (boards, state) = do
             if moving == dir then Just state -- Nothing needs to be done, non-conflicting looping movement
             else Nothing -- Conflicting loop found, fail
         Nothing -> do -- No loop found
-            (target, piecesExited) <- targetCell dir coord (boards, state)
+            (target, relativeCoord) <- targetCell dir coord (boards, state)
             when (lookupCellByCoord target boards == Wall) Nothing
             case BiMap.lookupB target state of
                 Nothing -> Just (BiMap.insert (piece, target) state)
                 Just inTheWay ->
-                    onPieceInTheWay piece inTheWay target dir inMotion piecesExited Set.empty (boards, state)
+                    onPieceInTheWay piece inTheWay target dir inMotion relativeCoord Set.empty (boards, state)
 
 onPieceInTheWay
     :: Piece
@@ -118,84 +119,93 @@ onPieceInTheWay
     -> Coord
     -> Step
     -> InMotion
-    -> BoardPiecesExitedCoords
+    -> RelativeCoord
     -> BeingEntered
     -> (Boards, GameState)
     -> Maybe (BiMap Piece Coord)
-onPieceInTheWay piece inTheWay target dir inMotion boardPiecesExitedCoords beingEntered (boards, state) =
+onPieceInTheWay piece inTheWay target dir inMotion relativeCoord beingEntered (boards, state) =
     let
         newInMotion = Map.insert piece dir inMotion
         push = do
             newState <- movePiece inTheWay target dir newInMotion (boards, state)
             Just (BiMap.insert (piece, target) newState)
         goInto = do
-            movePieceIntoAnother piece inTheWay dir newInMotion beingEntered boardPiecesExitedCoords (boards, state)
+            movePieceIntoAnother piece inTheWay dir newInMotion beingEntered relativeCoord (boards, state)
         eat = do
-            newState <- movePieceIntoAnother inTheWay piece (opposite dir) newInMotion Set.empty [] (boards, state)
+            newState <- movePieceIntoAnother inTheWay piece (opposite dir) newInMotion Set.empty (1 % 2) (boards, state)
             Just (BiMap.insert (piece, target) newState)
     in push <|> goInto <|> eat
 
 type BeingEntered = Set Piece
 
-movePieceIntoAnother :: Piece -> Piece -> Step -> InMotion -> BeingEntered -> BoardPiecesExitedCoords -> (Boards, GameState) -> Maybe GameState
-movePieceIntoAnother piece into dir inMotion beingEntered boardPiecesExitedCoords (boards, state) = do
+movePieceIntoAnother :: Piece -> Piece -> Step -> InMotion -> BeingEntered -> RelativeCoord -> (Boards, GameState) -> Maybe GameState
+movePieceIntoAnother piece into dir inMotion beingEntered relativeCoord (boards, state) = do
     when (Set.member into beingEntered) Nothing
-    let (getTargetCellXY, remainingBoardPiecesExitedCoords) =
-         case uncons boardPiecesExitedCoords of
-             Nothing -> (getEntryCellXY, [])
-             Just (ourCoord, rest) -> (getTransferCellXY ourCoord, rest)
     boardChar <- case into of
         BoardPiece boardChar -> Just boardChar
         Clone boardChar _ -> Just boardChar
         _ -> Nothing
     let board = boards Map.! boardChar
-    let (x, y) = getTargetCellXY dir board
+    let ((x, y), newRelativeCoord) = getEntryCellXY dir board relativeCoord
     when (lookupCellByXY (x, y) board == Wall) Nothing
     let target = Coord boardChar (x, y)
     case BiMap.lookupB target state of
         Nothing -> Just (BiMap.insert (piece, target) state)
-        Just inTheWay -> onPieceInTheWay piece inTheWay target dir inMotion remainingBoardPiecesExitedCoords newBeingEntered (boards, state)
+        Just inTheWay -> onPieceInTheWay piece inTheWay target dir inMotion newRelativeCoord newBeingEntered (boards, state)
     where
         newBeingEntered = Set.insert into beingEntered
 
--- When we are shinking to go into another piece
-getEntryCellXY :: Step -> Board -> (Int, Int)
-getEntryCellXY dir (Board w _) =
-    case dir of
-        Up -> (w `div` 2, w - 1) -- Prefer greater x for even blocks
-        Down -> (w `div` 2, 0)
-        Left -> (w - 1, (w - 1) `div` 2) -- Prefer lesser y for even blocks
-        Right -> (0, (w - 1) `div` 2)
+-- Figure out which cell to go into when entering a board piece
+getEntryCellXY :: Step -> Board -> RelativeCoord -> ((Int, Int), RelativeCoord)
+getEntryCellXY dir (Board w _) relativeCoord =
+    let (offset, remainder) = relativeCoord `ratioDivMod` (1 % w)
+    in case dir of
+        Up -> ((offset, w - 1), remainder * fromIntegral w)
+        Down -> ((offset, 0), remainder * fromIntegral w)
+        Left -> if remainder == 0
+            then ((w - 1, offset - 1), 1)
+            else ((w - 1, offset), remainder * fromIntegral w)
+        Right -> if remainder == 0
+            then ((0, offset - 1), 1)
+            else ((0, offset), remainder * fromIntegral w)
 
--- When we are growing or staying the same size to go into another piece
-getTransferCellXY :: (Int, Int) -> Step -> Board -> (Int, Int)
-getTransferCellXY (x, y) dir (Board w _) =
-    case dir of
-        Up -> (x, w - 1)
-        Down -> (x, 0)
-        Left -> (w - 1, y)
-        Right -> (0, y)
+type Target = (Coord, RelativeCoord)
 
-type Target = (Coord, BoardPiecesExitedCoords)
-type BoardPiecesExitedCoords = [(Int, Int)]
+-- This should always be a value gte 0 and lte 1
+-- Represents the location in the space being entered corresponding to the location of the center of the block being moved.
+type RelativeCoord = Ratio Int
 
 targetCell :: Step -> Coord -> (Boards, GameState) -> Maybe Target
 targetCell dir coord (boards, state) =
-    targetCell' coord Set.empty []
+    targetCell' coord Set.empty (1 % 2)
     where
-        targetCell' (Coord board (x, y)) boardsExited exitFromCoords
+        targetCell' (Coord board (x, y)) boardsExited relativeCoord
           | outOfBounds (width (boards Map.! board)) newXY = do
                 when (Set.member board boardsExited) Nothing
                 boardPieceCoord <- findPiece board state
-                targetCell' boardPieceCoord (Set.insert board boardsExited) newExitFromCoords
+                targetCell' boardPieceCoord (Set.insert board boardsExited) newRelativeCoord
           | otherwise =
-                Just (Coord board newXY, exitFromCoords)
+                Just (Coord board newXY, relativeCoord)
             where
                 newXY = delta dir (x, y)
-                newExitFromCoords = (x, y) : exitFromCoords
+                newRelativeCoord = case dir of
+                    Up -> f x
+                    Down -> f x
+                    Left -> f y
+                    Right -> f y
+                    where
+                        f offset = (fromIntegral offset + relativeCoord) / fromIntegral (width (boards Map.! board))
+
 
 outOfBounds :: Int -> (Int, Int) -> Bool
 outOfBounds w (x, y) = x < 0 || y < 0 || x >= w || y >= w
+
+-- Like divMod but works with fractional
+ratioDivMod :: RealFrac n => n -> n -> (Int, n)
+ratioDivMod n m =
+    let dividend = floor (n / m)
+        remainder = n - fromIntegral dividend * m
+    in (dividend, remainder)
 
 findPiece :: Char -> GameState -> Maybe Coord
 findPiece board =
