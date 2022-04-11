@@ -9,11 +9,13 @@ type Solution = [Step]
 data Step = Up | Down | Left | Right deriving (Eq, Show)
 
 type Boards = Map Char Board
+type FlippedPieces = Map Piece Flipped
 
 data Input = Input
     { boards :: Boards
     , initialState :: GameState
     , requirements :: Requirements
+    , flipped :: FlippedPieces
     }
 
 type GameState = BiMap Piece Coord
@@ -27,6 +29,7 @@ data Board = Board
     , cells :: Array Int Cell
     }
 
+data Flipped = FlippedHorizontal | FlippedVertical | FlippedBoth deriving (Eq, Ord, Show)
 data Piece
     = Player
     | Block Int

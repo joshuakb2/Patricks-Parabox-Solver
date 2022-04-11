@@ -62,7 +62,7 @@ solvePuzzle puzzle = do
             printSolution solution
 
 solve :: Input -> MaybeT IO Solution
-solve Input { boards, initialState, requirements } =
+solve Input { boards, initialState, requirements, flipped } =
     solve' [(initialState, [])] 0 (Set.singleton (canonicalGameStateStr initialState))
     where
         solve' states moves visitedStates = do
@@ -76,7 +76,7 @@ solve Input { boards, initialState, requirements } =
                 let calcNewStates = do
                      (state, steps) <- ListT.fromFoldable states
                      dir <- ListT.fromFoldable [Up, Down, Left, Right]
-                     newState <- ListT.fromFoldable (movePiece Player (BiMap.unsafeLookupA Player state) dir Map.empty (boards, state))
+                     newState <- ListT.fromFoldable (movePiece Player (BiMap.unsafeLookupA Player state) dir Map.empty (boards, flipped, state))
                      let canonical = canonicalGameStateStr newState
                      visitedStates <- get
                      when (Set.member canonical visitedStates) mzero
@@ -99,19 +99,19 @@ uniqueStates states =
 
 type InMotion = Map Piece Step
 
-movePiece :: Piece -> Coord -> Step -> InMotion -> (Boards, GameState) -> Maybe GameState
-movePiece piece coord dir inMotion (boards, state) = do
+movePiece :: Piece -> Coord -> Step -> InMotion -> (Boards, FlippedPieces, GameState) -> Maybe GameState
+movePiece piece coord dir inMotion (boards, flipped, state) = do
     case Map.lookup piece inMotion of
         Just moving ->
             if moving == dir then Just state -- Nothing needs to be done, non-conflicting looping movement
             else Nothing -- Conflicting loop found, fail
         Nothing -> do -- No loop found
-            (target, relativeCoord) <- targetCell dir coord (boards, state)
+            (target, relativeCoord) <- targetCell dir coord (boards, flipped, state)
             when (lookupCellByCoord target boards == Wall) Nothing
             case BiMap.lookupB target state of
                 Nothing -> Just (BiMap.insert (piece, target) state)
                 Just inTheWay ->
-                    onPieceInTheWay piece inTheWay target dir inMotion relativeCoord Set.empty (boards, state)
+                    onPieceInTheWay piece inTheWay target dir inMotion relativeCoord Set.empty (boards, flipped, state)
 
 onPieceInTheWay
     :: Piece
@@ -121,37 +121,38 @@ onPieceInTheWay
     -> InMotion
     -> RelativeCoord
     -> BeingEntered
-    -> (Boards, GameState)
+    -> (Boards, FlippedPieces, GameState)
     -> Maybe (BiMap Piece Coord)
-onPieceInTheWay piece inTheWay target dir inMotion relativeCoord beingEntered (boards, state) =
+onPieceInTheWay piece inTheWay target dir inMotion relativeCoord beingEntered (boards, flipped, state) =
     let
         newInMotion = Map.insert piece dir inMotion
         push = do
-            newState <- movePiece inTheWay target dir newInMotion (boards, state)
+            newState <- movePiece inTheWay target dir newInMotion (boards, flipped, state)
             Just (BiMap.insert (piece, target) newState)
         goInto = do
-            movePieceIntoAnother piece inTheWay dir newInMotion beingEntered relativeCoord (boards, state)
+            movePieceIntoAnother piece inTheWay dir newInMotion beingEntered relativeCoord (boards, flipped, state)
         eat = do
-            newState <- movePieceIntoAnother inTheWay piece (opposite dir) newInMotion Set.empty (1 % 2) (boards, state)
+            newState <- movePieceIntoAnother inTheWay piece (opposite dir) newInMotion Set.empty (1 % 2) (boards, flipped, state)
             Just (BiMap.insert (piece, target) newState)
     in push <|> goInto <|> eat
 
 type BeingEntered = Set Piece
 
-movePieceIntoAnother :: Piece -> Piece -> Step -> InMotion -> BeingEntered -> RelativeCoord -> (Boards, GameState) -> Maybe GameState
-movePieceIntoAnother piece into dir inMotion beingEntered relativeCoord (boards, state) = do
+movePieceIntoAnother :: Piece -> Piece -> Step -> InMotion -> BeingEntered -> RelativeCoord -> (Boards, FlippedPieces, GameState) -> Maybe GameState
+movePieceIntoAnother piece into dir inMotion beingEntered relativeCoord (boards, flipped, state) = do
     when (Set.member into beingEntered) Nothing
     boardChar <- case into of
         BoardPiece boardChar -> Just boardChar
         Clone boardChar _ -> Just boardChar
         _ -> Nothing
+    let enterDir = flipIfNeeded flipped into dir
     let board = boards Map.! boardChar
-    let ((x, y), newRelativeCoord) = getEntryCellXY dir board relativeCoord
+    let ((x, y), newRelativeCoord) = getEntryCellXY enterDir board relativeCoord
     when (lookupCellByXY (x, y) board == Wall) Nothing
     let target = Coord boardChar (x, y)
     case BiMap.lookupB target state of
         Nothing -> Just (BiMap.insert (piece, target) state)
-        Just inTheWay -> onPieceInTheWay piece inTheWay target dir inMotion newRelativeCoord newBeingEntered (boards, state)
+        Just inTheWay -> onPieceInTheWay piece inTheWay target enterDir inMotion newRelativeCoord newBeingEntered (boards, flipped, state)
     where
         newBeingEntered = Set.insert into beingEntered
 
@@ -169,24 +170,43 @@ getEntryCellXY dir (Board w _) relativeCoord =
             then ((0, offset - 1), 1)
             else ((0, offset), remainder * fromIntegral w)
 
+flipIfNeeded :: FlippedPieces -> Piece -> Step -> Step
+flipIfNeeded flipped piece dir =
+    case Map.lookup piece flipped of
+        Nothing -> dir
+        Just FlippedBoth -> opposite dir
+        Just FlippedHorizontal ->
+            case dir of
+                Left -> Right
+                Right -> Left
+                _ -> dir
+        Just FlippedVertical ->
+            case dir of
+                Up -> Down
+                Down -> Up
+                _ -> dir
+
+
 type Target = (Coord, RelativeCoord)
 
 -- This should always be a value gte 0 and lte 1
 -- Represents the location in the space being entered corresponding to the location of the center of the block being moved.
 type RelativeCoord = Ratio Int
 
-targetCell :: Step -> Coord -> (Boards, GameState) -> Maybe Target
-targetCell dir coord (boards, state) =
-    targetCell' coord Set.empty (1 % 2)
+targetCell :: Step -> Coord -> (Boards, FlippedPieces, GameState) -> Maybe Target
+targetCell dir coord (boards, flipped, state) =
+    targetCell' dir coord Set.empty (1 % 2)
     where
-        targetCell' (Coord board (x, y)) boardsExited relativeCoord
-          | outOfBounds (width (boards Map.! board)) newXY = do
-                when (Set.member board boardsExited) Nothing
-                boardPieceCoord <- findPiece board state
-                targetCell' boardPieceCoord (Set.insert board boardsExited) newRelativeCoord
+        targetCell' dir (Coord boardChar (x, y)) boardsExited relativeCoord
+          | outOfBounds (width board) newXY = do
+                when (Set.member boardChar boardsExited) Nothing
+                boardPieceCoord <- findPiece boardChar state
+                targetCell' exitDir boardPieceCoord (Set.insert boardChar boardsExited) newRelativeCoord
           | otherwise =
-                Just (Coord board newXY, relativeCoord)
+                Just (Coord boardChar newXY, relativeCoord)
             where
+                board = boards Map.! boardChar
+                exitDir = flipIfNeeded flipped (BoardPiece boardChar) dir
                 newXY = delta dir (x, y)
                 newRelativeCoord = case dir of
                     Up -> f x
@@ -194,7 +214,7 @@ targetCell dir coord (boards, state) =
                     Left -> f y
                     Right -> f y
                     where
-                        f offset = (fromIntegral offset + relativeCoord) / fromIntegral (width (boards Map.! board))
+                        f offset = (fromIntegral offset + relativeCoord) / fromIntegral (width (boards Map.! boardChar))
 
 
 outOfBounds :: Int -> (Int, Int) -> Bool

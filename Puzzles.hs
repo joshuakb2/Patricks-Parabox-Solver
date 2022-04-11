@@ -10,9 +10,7 @@ puzzles :: [Input]
 puzzles =
     [ Input
         { boards = Map.fromList
-            [ ('G', makeBoard 5 [repeat ' ']
-            )
-            ]
+            [ ('G', makeBoard 5 [repeat ' ']) ]
         , initialState = BiMap.fromList
             [ (Player, Coord 'G' (2, 3))
             , (Clone 'G' 1, Coord 'G' (1, 0))
@@ -26,6 +24,7 @@ puzzles =
             , (Coord 'G' (3, 2), RequireNonPlayer)
             , (Coord 'G' (2, 1), RequirePlayer)
             ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -54,6 +53,7 @@ puzzles =
             , (Coord 'B' (7, 6), RequireNonPlayer)
             , (Coord 'B' (7, 7), RequirePlayer)
             ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -83,8 +83,8 @@ puzzles =
             , (BoardPiece 'Y', Coord 'G' (5, 5))
             ]
         , requirements = Map.fromList
-            [ (Coord 'Y' (1, 1), RequirePlayer)
-            ]
+            [ (Coord 'Y' (1, 1), RequirePlayer) ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -118,6 +118,7 @@ puzzles =
             , (Coord 'G' (4, 4), RequireNonPlayer)
             , (Coord 'G' (6, 4), RequireNonPlayer)
             ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -155,6 +156,7 @@ puzzles =
             [ (Coord 'G' (3, 7), RequirePlayer)
             , (Coord 'G' (5, 7), RequireNonPlayer)
             ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -190,7 +192,7 @@ puzzles =
                 , "XXX"
                 , "  X"
                 ]
-            )
+              )
             ]
         , initialState = BiMap.fromList
             [ (Player, Coord 'B' (2, 2))
@@ -201,6 +203,7 @@ puzzles =
             , (Block 1, Coord 'Y' (0, 2))
             ]
         , requirements = Map.fromList [(Coord 'Y' (0, 2), RequirePlayer)]
+        , flipped = Map.empty
         }
 
     , Input
@@ -243,6 +246,7 @@ puzzles =
             [ (Coord 'P' (5, 4), RequireNonPlayer)
             , (Coord 'P' (5, 2), RequirePlayer)
             ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -278,6 +282,7 @@ puzzles =
             , (BoardPiece 'G', Coord 'B' (4, 4))
             ]
         , requirements = Map.fromList [(Coord 'B' (1, 7), RequirePlayer)]
+        , flipped = Map.empty
         }
 
     , Input
@@ -316,9 +321,10 @@ puzzles =
             , (BoardPiece 'G', Coord 'M' (2, 4))
             ]
         , requirements = Map.fromList
-            [ (Coord 'G' (3, 1), RequirePlayer)
-            ]
+            [ (Coord 'G' (3, 1), RequirePlayer) ]
+        , flipped = Map.empty
         }
+
     , Input
         { boards = Map.fromList
             [ ('P', makeBoard 7
@@ -360,6 +366,7 @@ puzzles =
             [ (Coord 'B' (3, 3), RequirePlayer)
             , (Coord 'B' (6, 5), RequireNonPlayer)
             ]
+        , flipped = Map.empty
         }
 
     , Input
@@ -410,6 +417,7 @@ puzzles =
             , (Coord 'O' (3, 3), RequireNonPlayer)
             , (Coord 'B' (4, 1), RequirePlayer)
             ]
+        , flipped = Map.empty
         }
     , Input
         { boards = Map.fromList [ ('B', makeBoard 3 [repeat ' ']) ]
@@ -423,6 +431,7 @@ puzzles =
             , (Coord 'B' (2, 1), RequireNonPlayer)
             , (Coord 'B' (2, 0), RequirePlayer)
             ]
+        , flipped = Map.empty
         }
     , Input
         { boards = Map.fromList
@@ -459,6 +468,32 @@ puzzles =
             , (Coord 'M' (4, 4), RequireNonPlayer)
             , (Coord 'M' (4, 5), RequireNonPlayer)
             ]
+        , flipped = Map.empty
+        }
+    , Input
+        { boards = Map.fromList
+            [ ('P', makeBoard 9
+                [ "XXXXXXXXX"
+                , "X   X  XX"
+                , "X X     X"
+                , "X X X  XX"
+                , "  X XX   "
+                , "XXX  XXXX"
+                , "XX   XXXX"
+                , "XXX  XXXX"
+                , "XXXXXXXXX"
+                ]
+              )
+            ]
+        , initialState = BiMap.fromList
+            [ (Player, Coord 'P' (4, 2))
+            , (BoardPiece 'P', Coord 'P' (6, 3))
+            ]
+        , requirements = Map.fromList
+            [ (Coord 'P' (4, 5), RequireNonPlayer)
+            , (Coord 'P' (4, 7), RequirePlayer)
+            ]
+        , flipped = Map.singleton (BoardPiece 'P') FlippedHorizontal
         }
     ]
 
