@@ -361,6 +361,105 @@ puzzles =
             , (Coord 'B' (6, 5), RequireNonPlayer)
             ]
         }
+
+    , Input
+        { boards = Map.fromList
+            [ ('B', makeBoard 9
+                [ "XXXXXXXXX"
+                , "X        "
+                , "X        "
+                , "X        "
+                , "X        "
+                , "X        "
+                , "X        "
+                , "X        "
+                , "XX       "
+                ]
+              )
+            , ('O', makeBoard 5
+                [ "XX XX"
+                , "X  XX"
+                , "X XXX"
+                , "X   X"
+                , "XXXXX"
+                ]
+              )
+            , ('G', makeBoard 9
+                [ "X       X"
+                , "X       X"
+                , "X       X"
+                , "XXXXXXXXX"
+                , "XXXXXXXXX"
+                , "XXXXXXXXX"
+                , "XXXXXXXXX"
+                , "XXXXXXXXX"
+                , "XXXXXXXXX"
+                ]
+              )
+            ]
+        , initialState = BiMap.fromList
+            [ (Player, Coord 'B' (4, 5))
+            , (BoardPiece 'B', Coord 'B' (3, 3))
+            , (BoardPiece 'G', Coord 'B' (1, 7))
+            , (BoardPiece 'O', Coord 'B' (5, 3))
+            , (Block 1, Coord 'O' (2, 3))
+            ]
+        , requirements = Map.fromList
+            [ (Coord 'B' (1, 1), RequireNonPlayer)
+            , (Coord 'B' (1, 2), RequireNonPlayer)
+            , (Coord 'O' (3, 3), RequireNonPlayer)
+            , (Coord 'B' (4, 1), RequirePlayer)
+            ]
+        }
+    , Input
+        { boards = Map.fromList [ ('B', makeBoard 3 [repeat ' ']) ]
+        , initialState = BiMap.fromList
+            [ (Player, Coord 'B' (1, 0))
+            , (BoardPiece 'B', Coord 'B' (1, 1))
+            , (Block 1, Coord 'B' (1, 2))
+            ]
+        , requirements = Map.fromList
+            [ (Coord 'B' (0, 1), RequireNonPlayer)
+            , (Coord 'B' (2, 1), RequireNonPlayer)
+            , (Coord 'B' (2, 0), RequirePlayer)
+            ]
+        }
+    , Input
+        { boards = Map.fromList
+            [ ('M', makeBoard 7
+                [ "XXXXXXX"
+                , "XXX XXX"
+                , "X     X"
+                , "X     X"
+                , "XX   XX"
+                , "XX   XX"
+                , "XXXXXXX"
+                ]
+              )
+            , ('G', makeBoard 3 [repeat ' '])
+            ]
+        , initialState = BiMap.fromList
+            [ (Player, Coord 'M' (3, 3))
+            , (BoardPiece 'G', Coord 'M' (3, 1))
+            , (Clone 'G' 1, Coord 'G' (0, 0))
+            , (Clone 'G' 2, Coord 'G' (1, 0))
+            , (Clone 'G' 3, Coord 'G' (2, 0))
+            , (Clone 'G' 4, Coord 'G' (2, 1))
+            , (Clone 'G' 5, Coord 'G' (2, 2))
+            , (Clone 'G' 6, Coord 'G' (1, 2))
+            , (Clone 'G' 7, Coord 'G' (0, 2))
+            , (Clone 'G' 8, Coord 'G' (0, 1))
+            ]
+        , requirements = Map.fromList
+            [ (Coord 'M' (5, 2), RequirePlayer)
+            , (Coord 'M' (2, 4), RequireNonPlayer)
+            , (Coord 'M' (2, 5), RequireNonPlayer)
+            , (Coord 'M' (3, 4), RequireNonPlayer)
+            , (Coord 'M' (3, 5), RequireNonPlayer)
+            , (Coord 'M' (4, 4), RequireNonPlayer)
+            , (Coord 'M' (4, 5), RequireNonPlayer)
+            ]
+        }
     ]
 
 charsToCells :: String -> [Cell]
